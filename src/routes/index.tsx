@@ -4,11 +4,15 @@ import HomePage from '../pages/HomePage';
 import NotFoundPage from '../pages/NotFoundPage';
 import ModelPlaceholderPage from '../pages/ModelPlaceholderPage';
 import PolyhedraPage from '../models/polyhedra';
+import PolychoraPage from '../models/polychora';
 import { allModels } from '../data/modelRegistry';
 
 const modelRoutes = allModels.map((model) => ({
   path: model.path,
-  element: model.id === 'polyhedra' ? <PolyhedraPage /> : <ModelPlaceholderPage />,
+  element:
+    model.id === 'polyhedra' ? <PolyhedraPage /> :
+    model.id === 'polychora' ? <PolychoraPage /> :
+    <ModelPlaceholderPage />,
 }));
 
 export const router = createBrowserRouter([

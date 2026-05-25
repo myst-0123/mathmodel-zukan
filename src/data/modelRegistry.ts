@@ -24,6 +24,13 @@ export const categories: Category[] = [
         category: 'geometry',
         path: '/models/polyhedra',
       },
+      {
+        id: 'polychora',
+        name: '正多胞体ビューア',
+        description: '5胞体・超立方体・16胞体・24胞体・120胞体・600胞体を3方式の射影で可視化',
+        category: 'geometry',
+        path: '/models/polychora',
+      },
     ],
   },
 ];
