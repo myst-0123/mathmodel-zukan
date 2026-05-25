@@ -214,7 +214,7 @@ function rawCell120Verts(): [number,number,number,number][] {
     ...orbit([pi,pi,pi,p2], true),
     ...orbit([0,pi2,1,p2], true),
     ...orbit([0,pi,p,s5], true),
-    ...orbit([pi,1,p,s5], true),
+    ...orbit([pi,1,p,2], true),
   ];
   return normalize4(dedup(raw)).verts;
 }
@@ -348,7 +348,7 @@ export function buildCell120(): PolychoronData {
     ...orbit([pi,pi,pi,p2], true),
     ...orbit([0,pi2,1,p2], true),
     ...orbit([0,pi,p,s5], true),
-    ...orbit([pi,1,p,s5], true),
+    ...orbit([pi,1,p,2], true),
   ];
   const unique = dedup(raw);
   const { verts } = normalize4(unique);
