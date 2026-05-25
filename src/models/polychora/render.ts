@@ -98,6 +98,14 @@ export interface Projected4D {
   cx: number; cy: number; z: number; w: number;
 }
 
+export function rotateAll(
+  verts: [number,number,number,number][],
+  opts: RenderOpts4D
+): [number,number,number,number][] {
+  const m = makeRot4(opts.angleXY,opts.angleXZ,opts.angleXW,opts.angleYZ,opts.angleYW,opts.angleZW);
+  return verts.map(v => applyRot4(m, v));
+}
+
 export function projectAll(
   verts: [number,number,number,number][],
   opts: RenderOpts4D
@@ -109,6 +117,61 @@ export function projectAll(
     const [cx,cy,z] = project3to2(xyz, opts.zoom, opts.W, opts.H, opts.projMode);
     return { cx, cy, z, w: rotated[3] };
   });
+}
+
+export function computeSlice(
+  faces: number[][],
+  rotated: [number,number,number,number][],
+  wSlice: number
+): [[number,number,number], [number,number,number]][] {
+  const segments: [[number,number,number],[number,number,number]][] = [];
+  const eps = 1e-9;
+  for (const f of faces) {
+    const pts: [number,number,number][] = [];
+    const n = f.length;
+    for (let i = 0; i < n; i++) {
+      const a = f[i], b = f[(i+1) % n];
+      const [xa,ya,za,wa] = rotated[a];
+      const [xb,yb,zb,wb] = rotated[b];
+      const da = wa - wSlice, db = wb - wSlice;
+      if (Math.abs(da) < eps) {
+        pts.push([xa, ya, za]);
+      } else if (da * db < 0) {
+        const t = da / (da - db);
+        pts.push([xa + t*(xb-xa), ya + t*(yb-ya), za + t*(zb-za)]);
+      }
+    }
+    // Dedup near-identical points
+    const unique: [number,number,number][] = [];
+    for (const p of pts) {
+      const key = p.map(v => v.toFixed(6)).join(',');
+      if (!unique.some(u => u.map(v => v.toFixed(6)).join(',') === key))
+        unique.push(p);
+    }
+    if (unique.length === 2) segments.push([unique[0], unique[1]]);
+  }
+  return segments;
+}
+
+export function drawSlice(
+  ctx: CanvasRenderingContext2D,
+  segments: [[number,number,number], [number,number,number]][],
+  opts: RenderOpts4D
+): void {
+  ctx.lineWidth = 2.0;
+  ctx.strokeStyle = '#ffd54a';
+  for (const [p0, p1] of segments) {
+    const [cx0, cy0, z0] = project3to2(p0, opts.zoom, opts.W, opts.H, opts.projMode);
+    const [cx1, cy1, z1] = project3to2(p1, opts.zoom, opts.W, opts.H, opts.projMode);
+    const midZ = (z0 + z1) / 2;
+    ctx.globalAlpha = depthAlpha(midZ);
+    ctx.beginPath();
+    ctx.moveTo(cx0, cy0);
+    ctx.lineTo(cx1, cy1);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = 1.2;
 }
 
 export function drawEdges4D(

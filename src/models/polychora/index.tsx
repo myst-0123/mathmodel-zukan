@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { POLYCHORA_LIST } from './solids';
-import { projectAll, drawEdges4D, drawFaces4D, drawVerts4D } from './render';
+import { projectAll, rotateAll, drawEdges4D, drawFaces4D, drawVerts4D, computeSlice, drawSlice } from './render';
 import type { PolychoronId } from './solids';
 import type { ProjectionMode, RenderOpts4D } from './render';
 
@@ -15,6 +15,8 @@ export default function PolychoraPage() {
   const [showFaces, setShowFaces] = useState(false);
   const [showVerts, setShowVerts] = useState(false);
   const [useWColor, setUseWColor] = useState(true);
+  const [showSlice, setShowSlice] = useState(false);
+  const [sliceW, setSliceW] = useState(0);
 
   const polytope = useMemo(
     () => POLYCHORA_LIST.find(p => p.id === currentId)!.builder(),
@@ -61,13 +63,18 @@ export default function PolychoraPage() {
       if (showFaces) drawFaces4D(ctx, polytope.faces, projected, useWColor);
       drawEdges4D(ctx, polytope.edges, projected, useWColor);
       if (showVerts) drawVerts4D(ctx, projected, useWColor);
+      if (showSlice) {
+        const rotated = rotateAll(polytope.verts, opts);
+        const segments = computeSlice(polytope.faces, rotated, sliceW);
+        drawSlice(ctx, segments, opts);
+      }
 
       rafId = requestAnimationFrame(loop);
     }
 
     rafId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafId);
-  }, [polytope, projMode, autoRotate, showFaces, showVerts, useWColor]);
+  }, [polytope, projMode, autoRotate, showFaces, showVerts, useWColor, showSlice, sliceW]);
 
   // Window-level mouse events
   useEffect(() => {
@@ -250,7 +257,32 @@ export default function PolychoraPage() {
         >
           W座標の色付け
         </button>
+        <button
+          onClick={() => setShowSlice(v => !v)}
+          className={`px-4 py-1.5 text-sm rounded-lg border transition-colors ${
+            showSlice
+              ? 'bg-amber-600 border-amber-500 text-white'
+              : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'
+          }`}
+        >
+          W断面
+        </button>
       </div>
+
+      {/* W slice slider */}
+      {showSlice && (
+        <div className="flex items-center gap-3 mt-3">
+          <span className="text-xs text-amber-400 w-16 tabular-nums">
+            W = {sliceW >= 0 ? '+' : ''}{sliceW.toFixed(2)}
+          </span>
+          <input
+            type="range" min={-1.2} max={1.2} step={0.01}
+            value={sliceW}
+            onChange={e => setSliceW(+e.target.value)}
+            className="w-48 accent-amber-500"
+          />
+        </div>
+      )}
 
       {/* Info */}
       <p className="mt-3 text-xs text-gray-600 leading-relaxed">
