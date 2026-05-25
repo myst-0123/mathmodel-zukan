@@ -1,5 +1,4 @@
 const phi = (1 + Math.sqrt(5)) / 2;
-const phi2 = phi * phi;
 const eps = 0.015;
 
 export interface RectGroup {
@@ -77,23 +76,38 @@ function findTriangles(verts: [number, number, number][], edges: [number, number
   return faces;
 }
 
+// Normalize a vertex array so the circumradius (distance from origin) = 1.
+// Regular polyhedra have all vertices equidistant, so we compute R from vertex 0.
+function normalize(
+  rawVerts: [number, number, number][]
+): { verts: [number, number, number][]; R: number } {
+  const [x, y, z] = rawVerts[0];
+  const R = Math.sqrt(x * x + y * y + z * z);
+  const verts = rawVerts.map(([vx, vy, vz]) => [vx / R, vy / R, vz / R] as [number, number, number]);
+  return { verts, R };
+}
+
 export function buildDodeca(): SolidData {
-  const s = phi / 2, s2 = phi2 / 2, h = 0.5;
-  const verts: [number, number, number][] = [
+  const s = phi / 2, s2 = phi * phi / 2, h = 0.5;
+  const rawVerts: [number, number, number][] = [
     [ s,  s,  s], [ s,  s, -s], [ s, -s,  s], [ s, -s, -s],
     [-s,  s,  s], [-s,  s, -s], [-s, -s,  s], [-s, -s, -s],
     [0,  h,  s2], [0,  h, -s2], [0, -h,  s2], [0, -h, -s2],
     [ s2, 0,  h], [ s2, 0, -h], [-s2, 0,  h], [-s2, 0, -h],
     [ h,  s2, 0], [-h,  s2, 0], [ h, -s2, 0], [-h, -s2, 0],
   ];
-  const edgeLen = 1;
+
+  const { verts, R } = normalize(rawVerts);
+  const edgeLen = 1 / R;
+  const cubeLen = phi / R;
+
   const edges = findEdges(verts, edgeLen);
   const faces = findPentagons(verts, edges);
 
   const cubeEdges: [number, number][] = [];
   for (let i = 0; i < 8; i++)
     for (let j = i + 1; j < 8; j++)
-      if (Math.abs(dist(verts[i], verts[j]) - phi) < eps) cubeEdges.push([i, j]);
+      if (Math.abs(dist(verts[i], verts[j]) - cubeLen) < eps) cubeEdges.push([i, j]);
 
   return {
     verts, edges, faces, edgeLen,
@@ -105,7 +119,7 @@ export function buildDodeca(): SolidData {
     ],
     faceColors: ['#4466ff','#3388ff','#44aaff','#3366dd','#5577ff',
                  '#2255cc','#4499ff','#336699','#5588ff','#2244bb','#4477ee','#3377ff'],
-    info: '辺の長さ = 1　／　内接立方体の一辺 = φ ≈ 1.618　／　長方形の長辺 = φ² ≈ 2.618',
+    info: '外接球の半径 = 1　／　内接立方体の辺との比 = φ ≈ 1.618　／　黄金長方形の縦横比 = φ',
     extraBtnLabel: '内接立方体',
     vertColorFn: (i) => i < 8 ? '#ffcc44' : i < 12 ? '#44ffaa' : i < 16 ? '#ff88ff' : '#ff6688',
   };
@@ -113,7 +127,7 @@ export function buildDodeca(): SolidData {
 
 export function buildIcosa(): SolidData {
   const sc = 0.5;
-  const verts: [number, number, number][] = [
+  const rawVerts: [number, number, number][] = [
     [0,       sc,       sc * phi], [0,       sc,      -sc * phi],
     [0,      -sc,       sc * phi], [0,      -sc,      -sc * phi],
     [ sc * phi, 0,       sc],      [ sc * phi, 0,      -sc],
@@ -121,7 +135,10 @@ export function buildIcosa(): SolidData {
     [ sc,  sc * phi, 0],           [ sc, -sc * phi, 0],
     [-sc,  sc * phi, 0],           [-sc, -sc * phi, 0],
   ];
-  const edgeLen = 1;
+
+  const { verts, R } = normalize(rawVerts);
+  const edgeLen = 1 / R;
+
   const edges = findEdges(verts, edgeLen);
   const faces = findTriangles(verts, edges);
 
@@ -137,7 +154,7 @@ export function buildIcosa(): SolidData {
                  '#4499ee','#33aaff','#2277cc','#55aaee','#4488ff',
                  '#33bbff','#2255bb','#44bbee','#3377ff','#55ccff',
                  '#2244cc','#4499ff','#3366ee','#5599ff','#2266cc'],
-    info: '辺の長さ = 1　／　3つの黄金長方形(1 × φ)が直交して内接',
+    info: '外接球の半径 = 1　／　3つの黄金長方形(比 1 : φ)が直交して内接',
     extraBtnLabel: null,
     vertColorFn: (i) => i < 4 ? '#ff6688' : i < 8 ? '#44ffaa' : '#ff88ff',
   };

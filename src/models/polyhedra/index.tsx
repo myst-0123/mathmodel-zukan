@@ -34,7 +34,7 @@ export default function PolyhedraPage() {
   // Rotation / zoom in refs — updated by event handlers, read every frame
   const rotXRef   = useRef(0.35);
   const rotYRef   = useRef(0.5);
-  const zoomRef   = useRef(130);
+  const zoomRef   = useRef(350);
   const dragging  = useRef(false);
   const lastX     = useRef(0);
   const lastY     = useRef(0);
@@ -64,10 +64,10 @@ export default function PolyhedraPage() {
       if (show.rects) for (const rg of rectGroups) drawRect(ctx, rg, verts, opts);
       if (show.extra && extra)
         for (const [a, b] of extra.edges)
-          drawLine(ctx, verts[a], verts[b], opts, extra.color, 2, [5, 3]);
+          drawLine(ctx, verts[a], verts[b], opts, extra.color, 2, [5, 3], true);
       if (show.edges)
         for (const [a, b] of edges)
-          drawLine(ctx, verts[a], verts[b], opts, '#5599ff', 1.8);
+          drawLine(ctx, verts[a], verts[b], opts, '#5599ff', 1.8, [], true);
       if (show.verts) {
         for (let i = 0; i < verts.length; i++) {
           const [px, py] = project(verts[i], opts);
@@ -138,7 +138,7 @@ export default function PolyhedraPage() {
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
-        zoomRef.current = Math.max(60, Math.min(300, zoomRef.current * d / pinchDist.current));
+        zoomRef.current = Math.max(100, Math.min(600, zoomRef.current * d / pinchDist.current));
         pinchDist.current = d;
       }
     };
@@ -161,7 +161,7 @@ export default function PolyhedraPage() {
     if (!canvas) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      zoomRef.current = Math.max(60, Math.min(300, zoomRef.current - e.deltaY * 0.3));
+      zoomRef.current = Math.max(100, Math.min(600, zoomRef.current - e.deltaY * 0.3));
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', onWheel);

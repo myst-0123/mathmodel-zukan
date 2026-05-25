@@ -24,6 +24,12 @@ export function project(
   return [W / 2 + x1 * zoom / 3.5, H / 2 - y1 * zoom / 3.5, z2];
 }
 
+// Vertices are normalized to circumradius=1, so z ∈ [-1, 1].
+// depthFade maps z: back(−1)→alpha 0.15, equator(0)→0.575, front(+1)→1.0
+function depthAlpha(z: number): number {
+  return 0.15 + 0.85 * Math.max(0, (z + 1) / 2);
+}
+
 export function drawLine(
   ctx: CanvasRenderingContext2D,
   p1: [number, number, number],
@@ -31,11 +37,14 @@ export function drawLine(
   opts: ProjectionOpts,
   color: string,
   width = 1.5,
-  dash: number[] = []
+  dash: number[] = [],
+  depthFade = false
 ) {
-  const [x1, y1] = project(p1, opts);
-  const [x2, y2] = project(p2, opts);
+  const [x1, y1, z1] = project(p1, opts);
+  const [x2, y2, z2] = project(p2, opts);
+  const alpha = depthFade ? depthAlpha((z1 + z2) / 2) : 1.0;
   ctx.save();
+  ctx.globalAlpha = alpha;
   ctx.strokeStyle = color;
   ctx.lineWidth = width;
   ctx.setLineDash(dash);
@@ -111,7 +120,7 @@ export function drawRect(
   ctx.fill();
   ctx.restore();
   for (let i = 0; i < vs.length; i++)
-    drawLine(ctx, verts[vs[i]], verts[vs[(i + 1) % vs.length]], opts, rg.color, 2.5);
-  drawLine(ctx, verts[vs[0]], verts[vs[2]], opts, rg.color, 1, [4, 4]);
-  drawLine(ctx, verts[vs[1]], verts[vs[3]], opts, rg.color, 1, [4, 4]);
+    drawLine(ctx, verts[vs[i]], verts[vs[(i + 1) % vs.length]], opts, rg.color, 2.5, [], true);
+  drawLine(ctx, verts[vs[0]], verts[vs[2]], opts, rg.color, 1, [4, 4], true);
+  drawLine(ctx, verts[vs[1]], verts[vs[3]], opts, rg.color, 1, [4, 4], true);
 }
