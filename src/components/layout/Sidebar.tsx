@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { categories } from '../../data/modelRegistry';
 
@@ -13,15 +13,31 @@ const ChevronIcon = ({ open }: { open: boolean }) => (
   </svg>
 );
 
+function buildOpenState(pathname: string): Record<string, boolean> {
+  return categories.reduce<Record<string, boolean>>((acc, cat) => {
+    acc[cat.id] = cat.models.some((m) => m.path === pathname);
+    return acc;
+  }, {});
+}
+
 export default function Sidebar() {
   const location = useLocation();
 
-  const defaultOpen = categories.reduce<Record<string, boolean>>((acc, cat) => {
-    acc[cat.id] = cat.models.some((m) => m.path === location.pathname);
-    return acc;
-  }, {});
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(
+    () => buildOpenState(location.pathname)
+  );
 
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(defaultOpen);
+  useEffect(() => {
+    setOpenCategories((prev) => {
+      const next = { ...prev };
+      categories.forEach((cat) => {
+        if (cat.models.some((m) => m.path === location.pathname)) {
+          next[cat.id] = true;
+        }
+      });
+      return next;
+    });
+  }, [location.pathname]);
 
   const toggleCategory = (id: string) => {
     setOpenCategories((prev) => ({ ...prev, [id]: !prev[id] }));
