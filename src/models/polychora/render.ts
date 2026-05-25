@@ -133,6 +133,35 @@ export function drawEdges4D(
   ctx.globalAlpha = 1;
 }
 
+export function drawFaces4D(
+  ctx: CanvasRenderingContext2D,
+  faces: number[][],
+  projected: Projected4D[],
+  useWColor: boolean
+): void {
+  // Depth-sort faces back→front (painter's algorithm)
+  const sorted = faces
+    .map((f,i) => {
+      const z = f.reduce((s,v)=>s+projected[v].z,0)/f.length;
+      const w = f.reduce((s,v)=>s+projected[v].w,0)/f.length;
+      return {i, z, w};
+    })
+    .sort((a,b) => a.z - b.z);
+
+  for (const {i, z, w} of sorted) {
+    const f = faces[i];
+    const alpha = 0.1 * depthAlpha(z);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = useWColor ? wCoordColor(w) : '#3366cc';
+    ctx.beginPath();
+    ctx.moveTo(projected[f[0]].cx, projected[f[0]].cy);
+    for (let k = 1; k < f.length; k++) ctx.lineTo(projected[f[k]].cx, projected[f[k]].cy);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
 export function drawVerts4D(
   ctx: CanvasRenderingContext2D,
   projected: Projected4D[],

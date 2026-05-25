@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { POLYCHORA_LIST } from './solids';
-import { projectAll, drawEdges4D, drawVerts4D } from './render';
+import { projectAll, drawEdges4D, drawFaces4D, drawVerts4D } from './render';
 import type { PolychoronId } from './solids';
 import type { ProjectionMode, RenderOpts4D } from './render';
 
@@ -12,6 +12,7 @@ export default function PolychoraPage() {
   const [currentId, setCurrentId] = useState<PolychoronId>('cell8');
   const [projMode, setProjMode] = useState<ProjectionMode>('persp');
   const [autoRotate, setAutoRotate] = useState(true);
+  const [showFaces, setShowFaces] = useState(false);
   const [showVerts, setShowVerts] = useState(false);
   const [useWColor, setUseWColor] = useState(true);
 
@@ -57,6 +58,7 @@ export default function PolychoraPage() {
       };
 
       const projected = projectAll(polytope.verts, opts);
+      if (showFaces) drawFaces4D(ctx, polytope.faces, projected, useWColor);
       drawEdges4D(ctx, polytope.edges, projected, useWColor);
       if (showVerts) drawVerts4D(ctx, projected, useWColor);
 
@@ -65,7 +67,7 @@ export default function PolychoraPage() {
 
     rafId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafId);
-  }, [polytope, projMode, autoRotate, showVerts, useWColor]);
+  }, [polytope, projMode, autoRotate, showFaces, showVerts, useWColor]);
 
   // Window-level mouse events
   useEffect(() => {
@@ -219,6 +221,16 @@ export default function PolychoraPage() {
           自動回転
         </button>
         <button
+          onClick={() => setShowFaces(v => !v)}
+          className={`px-4 py-1.5 text-sm rounded-lg border transition-colors ${
+            showFaces
+              ? 'bg-indigo-600 border-indigo-500 text-white'
+              : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'
+          }`}
+        >
+          胞の面
+        </button>
+        <button
           onClick={() => setShowVerts(v => !v)}
           className={`px-4 py-1.5 text-sm rounded-lg border transition-colors ${
             showVerts
@@ -242,7 +254,7 @@ export default function PolychoraPage() {
 
       {/* Info */}
       <p className="mt-3 text-xs text-gray-600 leading-relaxed">
-        頂点数 {polytope.vertCount}　辺数 {polytope.edgeCount}
+        頂点数 {polytope.vertCount}　辺数 {polytope.edgeCount}　面数 {polytope.faceCount}
       </p>
 
       {/* Color legend */}
