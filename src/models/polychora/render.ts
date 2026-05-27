@@ -200,16 +200,19 @@ export function drawFaces4D(
   ctx: CanvasRenderingContext2D,
   faces: number[][],
   projected: Projected4D[],
-  useWColor: boolean
+  useWColor: boolean,
+  projMode: ProjectionMode = 'ortho'
 ): void {
-  // Depth-sort faces back→front (painter's algorithm)
+  // Depth-sort faces back→front (painter's algorithm).
+  // Ortho: larger z = front → ascending sort.
+  // Persp/Stereo: divisor zz = z+fov, so smaller z = closer → descending sort.
   const sorted = faces
     .map((f,i) => {
       const z = f.reduce((s,v)=>s+projected[v].z,0)/f.length;
       const w = f.reduce((s,v)=>s+projected[v].w,0)/f.length;
       return {i, z, w};
     })
-    .sort((a,b) => a.z - b.z);
+    .sort((a,b) => projMode === 'ortho' ? a.z - b.z : b.z - a.z);
 
   for (const {i, z, w} of sorted) {
     const f = faces[i];

@@ -77,7 +77,7 @@ export default function PolychoraPage() {
       };
 
       const projected = projectAll(polytope.verts, opts);
-      if (showFaces) drawFaces4D(ctx, polytope.faces, projected, useWColor);
+      if (showFaces) drawFaces4D(ctx, polytope.faces, projected, useWColor, projMode);
       drawEdges4D(ctx, polytope.edges, projected, useWColor);
       if (showVerts) drawVerts4D(ctx, projected, useWColor);
       if (showSlice) {
