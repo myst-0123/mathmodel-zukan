@@ -57,9 +57,11 @@ export default function PolychoraPage() {
         const now = performance.now();
         if (now - lastSyncRef.current > 60) {
           lastSyncRef.current = now;
+          // Normalize to [-π, π] so slider range is never exceeded
+          const norm = (a: number) => ((a % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
           setAngles({
-            xy: angXY.current, xz: angXZ.current, xw: angXW.current,
-            yz: angYZ.current, yw: angYW.current, zw: angZW.current,
+            xy: norm(angXY.current), xz: norm(angXZ.current), xw: norm(angXW.current),
+            yz: norm(angYZ.current), yw: norm(angYW.current), zw: norm(angZW.current),
           });
         }
       }
