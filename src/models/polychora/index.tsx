@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { POLYCHORA_LIST } from './solids';
-import { projectAll, rotateAll, drawEdges4D, drawFaces4D, drawVerts4D, computeSlice, drawSlice } from './render';
+import { projectAll, rotateAll, drawEdges4D, drawFaces4D, drawVerts4D, computeSlice, drawSlice, mat4Mul, planeMat, makeRot4 } from './render';
 import type { PolychoronId } from './solids';
-import type { ProjectionMode, RenderOpts4D } from './render';
+import type { ProjectionMode, RenderOpts4D, Mat4 } from './render';
 
 const CANVAS_SIZE = 480;
 
@@ -25,14 +25,15 @@ export default function PolychoraPage() {
     [currentId]
   );
 
+  const matRef  = useRef<Mat4>(makeRot4(0, 0, 0.3, 0, 0.2, 0));
+  // Slider position trackers (for delta computation on onChange)
   const angXY = useRef(0);
   const angXZ = useRef(0);
   const angXW = useRef(0.3);
   const angYZ = useRef(0);
   const angYW = useRef(0.2);
   const angZW = useRef(0);
-  const lastSyncRef = useRef(0);
-  const zoomRef   = useRef(280);
+  const zoomRef = useRef(280);
   const dragging  = useRef(false);
   const lastX     = useRef(0);
   const lastY     = useRef(0);
@@ -48,29 +49,13 @@ export default function PolychoraPage() {
 
     function loop() {
       if (autoRotate) {
-        angXW.current += 0.007;
-        angZW.current += 0.011;
-      }
-
-      // Throttled sync of rotation refs → slider state (~16fps)
-      if (showAngles) {
-        const now = performance.now();
-        if (now - lastSyncRef.current > 60) {
-          lastSyncRef.current = now;
-          // Normalize to [-π, π] so slider range is never exceeded
-          const norm = (a: number) => ((a % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
-          setAngles({
-            xy: norm(angXY.current), xz: norm(angXZ.current), xw: norm(angXW.current),
-            yz: norm(angYZ.current), yw: norm(angYW.current), zw: norm(angZW.current),
-          });
-        }
+        matRef.current = mat4Mul(mat4Mul(planeMat(0,3,0.007), planeMat(2,3,0.011)), matRef.current);
       }
 
       ctx.clearRect(0, 0, W, H);
 
       const opts: RenderOpts4D = {
-        angleXY: angXY.current, angleXZ: angXZ.current, angleXW: angXW.current,
-        angleYZ: angYZ.current, angleYW: angYW.current, angleZW: angZW.current,
+        rotMat: matRef.current,
         zoom: zoomRef.current, W, H,
         projMode,
         perspDist: 2.0,
@@ -91,15 +76,16 @@ export default function PolychoraPage() {
 
     rafId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafId);
-  }, [polytope, projMode, autoRotate, showFaces, showVerts, useWColor, showSlice, sliceW, showAngles]);
+  }, [polytope, projMode, autoRotate, showFaces, showVerts, useWColor, showSlice, sliceW]);
 
   // Window-level mouse events
   useEffect(() => {
     const onUp = () => { dragging.current = false; };
     const onMove = (e: MouseEvent) => {
       if (!dragging.current) return;
-      angXW.current += (e.clientX - lastX.current) * 0.01;
-      angYW.current += (e.clientY - lastY.current) * 0.01;
+      const dY = (e.clientX - lastX.current) * 0.01;
+      const dX = (e.clientY - lastY.current) * 0.01;
+      matRef.current = mat4Mul(mat4Mul(planeMat(0,3,dY), planeMat(1,3,dX)), matRef.current);
       lastX.current = e.clientX;
       lastY.current = e.clientY;
     };
@@ -132,8 +118,9 @@ export default function PolychoraPage() {
     const onMove = (e: TouchEvent) => {
       e.preventDefault();
       if (e.touches.length === 1 && dragging.current) {
-        angXW.current += (e.touches[0].clientX - lastX.current) * 0.012;
-        angYW.current += (e.touches[0].clientY - lastY.current) * 0.012;
+        const dY = (e.touches[0].clientX - lastX.current) * 0.012;
+        const dX = (e.touches[0].clientY - lastY.current) * 0.012;
+        matRef.current = mat4Mul(mat4Mul(planeMat(0,3,dY), planeMat(1,3,dX)), matRef.current);
         lastX.current = e.touches[0].clientX;
         lastY.current = e.touches[0].clientY;
       }
@@ -313,17 +300,17 @@ export default function PolychoraPage() {
 
       {/* Rotation angle sliders */}
       {showAngles && (() => {
-        const planes: { key: keyof typeof angles; label: string; ref: React.MutableRefObject<number> }[] = [
-          { key: 'xy', label: 'XY', ref: angXY },
-          { key: 'xz', label: 'XZ', ref: angXZ },
-          { key: 'xw', label: 'XW', ref: angXW },
-          { key: 'yz', label: 'YZ', ref: angYZ },
-          { key: 'yw', label: 'YW', ref: angYW },
-          { key: 'zw', label: 'ZW', ref: angZW },
+        const planes: { key: keyof typeof angles; label: string; ref: React.MutableRefObject<number>; p: number; q: number }[] = [
+          { key: 'xy', label: 'XY', ref: angXY, p: 0, q: 1 },
+          { key: 'xz', label: 'XZ', ref: angXZ, p: 0, q: 2 },
+          { key: 'xw', label: 'XW', ref: angXW, p: 0, q: 3 },
+          { key: 'yz', label: 'YZ', ref: angYZ, p: 1, q: 2 },
+          { key: 'yw', label: 'YW', ref: angYW, p: 1, q: 3 },
+          { key: 'zw', label: 'ZW', ref: angZW, p: 2, q: 3 },
         ];
         return (
           <div className="mt-3 p-3 rounded-xl border border-gray-700 bg-gray-900/60 grid grid-cols-2 gap-x-6 gap-y-2">
-            {planes.map(({ key, label, ref }) => (
+            {planes.map(({ key, label, ref, p, q }) => (
               <div key={key} className="flex items-center gap-2">
                 <span className="text-xs text-emerald-400 w-8 font-mono">{label}</span>
                 <input
@@ -331,6 +318,8 @@ export default function PolychoraPage() {
                   value={angles[key]}
                   onChange={e => {
                     const val = +e.target.value;
+                    const delta = val - ref.current;
+                    matRef.current = mat4Mul(planeMat(p, q, delta), matRef.current);
                     ref.current = val;
                     setAngles(prev => ({ ...prev, [key]: val }));
                     setAutoRotate(false);
