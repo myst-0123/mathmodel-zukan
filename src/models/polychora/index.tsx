@@ -17,6 +17,8 @@ export default function PolychoraPage() {
   const [useWColor, setUseWColor] = useState(true);
   const [showSlice, setShowSlice] = useState(false);
   const [sliceW, setSliceW] = useState(0);
+  const [showAngles, setShowAngles] = useState(false);
+  const [angles, setAngles] = useState({ xy:0, xz:0, xw:0.3, yz:0, yw:0.2, zw:0 });
 
   const polytope = useMemo(
     () => POLYCHORA_LIST.find(p => p.id === currentId)!.builder(),
@@ -29,6 +31,7 @@ export default function PolychoraPage() {
   const angYZ = useRef(0);
   const angYW = useRef(0.2);
   const angZW = useRef(0);
+  const lastSyncRef = useRef(0);
   const zoomRef   = useRef(280);
   const dragging  = useRef(false);
   const lastX     = useRef(0);
@@ -47,6 +50,18 @@ export default function PolychoraPage() {
       if (autoRotate) {
         angXW.current += 0.007;
         angZW.current += 0.011;
+      }
+
+      // Throttled sync of rotation refs → slider state (~16fps)
+      if (showAngles) {
+        const now = performance.now();
+        if (now - lastSyncRef.current > 60) {
+          lastSyncRef.current = now;
+          setAngles({
+            xy: angXY.current, xz: angXZ.current, xw: angXW.current,
+            yz: angYZ.current, yw: angYW.current, zw: angZW.current,
+          });
+        }
       }
 
       ctx.clearRect(0, 0, W, H);
@@ -74,7 +89,7 @@ export default function PolychoraPage() {
 
     rafId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafId);
-  }, [polytope, projMode, autoRotate, showFaces, showVerts, useWColor, showSlice, sliceW]);
+  }, [polytope, projMode, autoRotate, showFaces, showVerts, useWColor, showSlice, sliceW, showAngles]);
 
   // Window-level mouse events
   useEffect(() => {
@@ -267,6 +282,16 @@ export default function PolychoraPage() {
         >
           W断面
         </button>
+        <button
+          onClick={() => setShowAngles(v => !v)}
+          className={`px-4 py-1.5 text-sm rounded-lg border transition-colors ${
+            showAngles
+              ? 'bg-emerald-700 border-emerald-600 text-white'
+              : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'
+          }`}
+        >
+          回転角
+        </button>
       </div>
 
       {/* W slice slider */}
@@ -283,6 +308,41 @@ export default function PolychoraPage() {
           />
         </div>
       )}
+
+      {/* Rotation angle sliders */}
+      {showAngles && (() => {
+        const planes: { key: keyof typeof angles; label: string; ref: React.MutableRefObject<number> }[] = [
+          { key: 'xy', label: 'XY', ref: angXY },
+          { key: 'xz', label: 'XZ', ref: angXZ },
+          { key: 'xw', label: 'XW', ref: angXW },
+          { key: 'yz', label: 'YZ', ref: angYZ },
+          { key: 'yw', label: 'YW', ref: angYW },
+          { key: 'zw', label: 'ZW', ref: angZW },
+        ];
+        return (
+          <div className="mt-3 p-3 rounded-xl border border-gray-700 bg-gray-900/60 grid grid-cols-2 gap-x-6 gap-y-2">
+            {planes.map(({ key, label, ref }) => (
+              <div key={key} className="flex items-center gap-2">
+                <span className="text-xs text-emerald-400 w-8 font-mono">{label}</span>
+                <input
+                  type="range" min={-Math.PI} max={Math.PI} step={0.01}
+                  value={angles[key]}
+                  onChange={e => {
+                    const val = +e.target.value;
+                    ref.current = val;
+                    setAngles(prev => ({ ...prev, [key]: val }));
+                    setAutoRotate(false);
+                  }}
+                  className="w-32 accent-emerald-500"
+                />
+                <span className="text-xs text-gray-500 tabular-nums w-12">
+                  {(angles[key] / Math.PI * 180).toFixed(0)}°
+                </span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Info */}
       <p className="mt-3 text-xs text-gray-600 leading-relaxed">
