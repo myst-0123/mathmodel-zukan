@@ -4,6 +4,22 @@ import { project, drawLine, drawFaces, drawRect } from './render';
 import type { SolidData } from './solids';
 import type { ProjectionOpts } from './render';
 
+function mat3RotX(a: number): number[] {
+  const c = Math.cos(a), s = Math.sin(a);
+  return [1, 0, 0,  0, c, -s,  0, s, c];
+}
+function mat3RotY(a: number): number[] {
+  const c = Math.cos(a), s = Math.sin(a);
+  return [c, 0, s,  0, 1, 0,  -s, 0, c];
+}
+function mat3Mul(a: number[], b: number[]): number[] {
+  return [
+    a[0]*b[0]+a[1]*b[3]+a[2]*b[6], a[0]*b[1]+a[1]*b[4]+a[2]*b[7], a[0]*b[2]+a[1]*b[5]+a[2]*b[8],
+    a[3]*b[0]+a[4]*b[3]+a[5]*b[6], a[3]*b[1]+a[4]*b[4]+a[5]*b[7], a[3]*b[2]+a[4]*b[5]+a[5]*b[8],
+    a[6]*b[0]+a[7]*b[3]+a[8]*b[6], a[6]*b[1]+a[7]*b[4]+a[8]*b[7], a[6]*b[2]+a[7]*b[5]+a[8]*b[8],
+  ];
+}
+
 type SolidId = 'dodeca' | 'icosa';
 
 interface ShowFlags {
@@ -32,9 +48,8 @@ export default function PolyhedraPage() {
   );
 
   // Rotation / zoom in refs — updated by event handlers, read every frame
-  const rotXRef   = useRef(0.35);
-  const rotYRef   = useRef(0.5);
-  const zoomRef   = useRef(350);
+  const matRef  = useRef<number[]>(mat3Mul(mat3RotX(0.35), mat3RotY(0.5)));
+  const zoomRef = useRef(350);
   const dragging  = useRef(false);
   const lastX     = useRef(0);
   const lastY     = useRef(0);
@@ -49,12 +64,12 @@ export default function PolyhedraPage() {
     let rafId: number;
 
     function loop() {
-      if (autoRotate) rotYRef.current += 0.008;
+      if (autoRotate) matRef.current = mat3Mul(mat3RotY(0.008), matRef.current);
 
       ctx.clearRect(0, 0, W, H);
 
       const opts: ProjectionOpts = {
-        rotX: rotXRef.current, rotY: rotYRef.current,
+        rotMat: matRef.current,
         zoom: zoomRef.current, usePersp, W, H,
       };
 
@@ -92,8 +107,9 @@ export default function PolyhedraPage() {
     const onUp   = () => { dragging.current = false; };
     const onMove = (e: MouseEvent) => {
       if (!dragging.current) return;
-      rotYRef.current += (e.clientX - lastX.current) * 0.01;
-      rotXRef.current += (e.clientY - lastY.current) * 0.01;
+      const dY = (e.clientX - lastX.current) * 0.01;
+      const dX = (e.clientY - lastY.current) * 0.01;
+      matRef.current = mat3Mul(mat3RotX(dX), mat3Mul(mat3RotY(dY), matRef.current));
       lastX.current = e.clientX;
       lastY.current = e.clientY;
     };
@@ -128,8 +144,9 @@ export default function PolyhedraPage() {
     const onMove = (e: TouchEvent) => {
       e.preventDefault();
       if (e.touches.length === 1 && dragging.current) {
-        rotYRef.current += (e.touches[0].clientX - lastX.current) * 0.012;
-        rotXRef.current += (e.touches[0].clientY - lastY.current) * 0.012;
+        const dY = (e.touches[0].clientX - lastX.current) * 0.012;
+        const dX = (e.touches[0].clientY - lastY.current) * 0.012;
+        matRef.current = mat3Mul(mat3RotX(dX), mat3Mul(mat3RotY(dY), matRef.current));
         lastX.current = e.touches[0].clientX;
         lastY.current = e.touches[0].clientY;
       }

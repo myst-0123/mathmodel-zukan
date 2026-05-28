@@ -1,22 +1,20 @@
 export type ProjectionMode = 'ortho' | 'persp' | 'stereo';
+export type Mat4 = Float64Array;
 
 export interface RenderOpts4D {
-  angleXY: number; angleXZ: number; angleXW: number;
-  angleYZ: number; angleYW: number; angleZW: number;
+  rotMat: Mat4;
   zoom: number; W: number; H: number;
   projMode: ProjectionMode;
   perspDist: number;
 }
 
-type Mat4 = Float64Array;
-
-function mat4Id(): Mat4 {
+export function mat4Id(): Mat4 {
   const m = new Float64Array(16);
   m[0]=m[5]=m[10]=m[15]=1;
   return m;
 }
 
-function mat4Mul(a: Mat4, b: Mat4): Mat4 {
+export function mat4Mul(a: Mat4, b: Mat4): Mat4 {
   const c = new Float64Array(16);
   for (let i = 0; i < 4; i++)
     for (let j = 0; j < 4; j++)
@@ -25,7 +23,7 @@ function mat4Mul(a: Mat4, b: Mat4): Mat4 {
   return c;
 }
 
-function planeMat(p: number, q: number, angle: number): Mat4 {
+export function planeMat(p: number, q: number, angle: number): Mat4 {
   const m = mat4Id();
   const c = Math.cos(angle), s = Math.sin(angle);
   m[p*4+p] = c; m[p*4+q] = -s;
@@ -33,7 +31,7 @@ function planeMat(p: number, q: number, angle: number): Mat4 {
   return m;
 }
 
-function makeRot4(aXY:number,aXZ:number,aXW:number,aYZ:number,aYW:number,aZW:number): Mat4 {
+export function makeRot4(aXY:number,aXZ:number,aXW:number,aYZ:number,aYW:number,aZW:number): Mat4 {
   return [
     planeMat(0,1,aXY),
     planeMat(0,2,aXZ),
@@ -102,17 +100,15 @@ export function rotateAll(
   verts: [number,number,number,number][],
   opts: RenderOpts4D
 ): [number,number,number,number][] {
-  const m = makeRot4(opts.angleXY,opts.angleXZ,opts.angleXW,opts.angleYZ,opts.angleYW,opts.angleZW);
-  return verts.map(v => applyRot4(m, v));
+  return verts.map(v => applyRot4(opts.rotMat, v));
 }
 
 export function projectAll(
   verts: [number,number,number,number][],
   opts: RenderOpts4D
 ): Projected4D[] {
-  const m = makeRot4(opts.angleXY,opts.angleXZ,opts.angleXW,opts.angleYZ,opts.angleYW,opts.angleZW);
   return verts.map(v => {
-    const rotated = applyRot4(m, v);
+    const rotated = applyRot4(opts.rotMat, v);
     const xyz = project4to3(rotated, opts.projMode, opts.perspDist);
     const [cx,cy,z] = project3to2(xyz, opts.zoom, opts.W, opts.H, opts.projMode);
     return { cx, cy, z, w: rotated[3] };

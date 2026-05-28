@@ -1,8 +1,7 @@
 import type { RectGroup } from './solids';
 
 export interface ProjectionOpts {
-  rotX: number;
-  rotY: number;
+  rotMat: number[];
   zoom: number;
   usePersp: boolean;
   W: number;
@@ -11,12 +10,11 @@ export interface ProjectionOpts {
 
 export function project(
   [x, y, z]: [number, number, number],
-  { rotX, rotY, zoom, usePersp, W, H }: ProjectionOpts
+  { rotMat: m, zoom, usePersp, W, H }: ProjectionOpts
 ): [number, number, number] {
-  const x1 =  x * Math.cos(rotY) + z * Math.sin(rotY);
-  const z1 = -x * Math.sin(rotY) + z * Math.cos(rotY);
-  const y1 =  y * Math.cos(rotX) - z1 * Math.sin(rotX);
-  const z2 =  y * Math.sin(rotX) + z1 * Math.cos(rotX);
+  const x1 = m[0]*x + m[1]*y + m[2]*z;
+  const y1 = m[3]*x + m[4]*y + m[5]*z;
+  const z2 = m[6]*x + m[7]*y + m[8]*z;
   if (usePersp) {
     const fov = 6, zz = z2 + fov;
     return [W / 2 + x1 * zoom / zz, H / 2 - y1 * zoom / zz, z2];
