@@ -163,6 +163,15 @@ export default function PolychoraPage() {
     setAutoRotate(false);
   };
 
+  // Reset slider positions to 0 each time the panel is opened so that
+  // delta computation starts from the current matrix state.
+  useEffect(() => {
+    if (!showAngles) return;
+    angXY.current = 0; angXZ.current = 0; angXW.current = 0;
+    angYZ.current = 0; angYW.current = 0; angZW.current = 0;
+    setAngles({ xy: 0, xz: 0, xw: 0, yz: 0, yw: 0, zw: 0 });
+  }, [showAngles]);
+
   const projModes: { id: ProjectionMode; label: string }[] = [
     { id: 'ortho',  label: '正投影' },
     { id: 'persp',  label: '透視投影' },
@@ -279,7 +288,7 @@ export default function PolychoraPage() {
               : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'
           }`}
         >
-          回転角
+          回転を加える
         </button>
       </div>
 
@@ -309,7 +318,9 @@ export default function PolychoraPage() {
           { key: 'zw', label: 'ZW', ref: angZW, p: 2, q: 3 },
         ];
         return (
-          <div className="mt-3 p-3 rounded-xl border border-gray-700 bg-gray-900/60 grid grid-cols-2 gap-x-6 gap-y-2">
+          <div className="mt-3 p-3 rounded-xl border border-gray-700 bg-gray-900/60">
+            <p className="text-xs text-gray-500 mb-2">現在の向きからの追加回転（開くたびに 0 にリセット）</p>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2">
             {planes.map(({ key, label, ref, p, q }) => (
               <div key={key} className="flex items-center gap-2">
                 <span className="text-xs text-emerald-400 w-8 font-mono">{label}</span>
@@ -331,6 +342,7 @@ export default function PolychoraPage() {
                 </span>
               </div>
             ))}
+          </div>
           </div>
         );
       })()}
