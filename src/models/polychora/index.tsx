@@ -85,7 +85,7 @@ export default function PolychoraPage() {
       if (!dragging.current) return;
       const dY = (e.clientX - lastX.current) * 0.01;
       const dX = (e.clientY - lastY.current) * 0.01;
-      matRef.current = mat4Mul(mat4Mul(planeMat(0,3,dY), planeMat(1,3,dX)), matRef.current);
+      matRef.current = mat4Mul(mat4Mul(planeMat(0,3,-dY), planeMat(1,3,-dX)), matRef.current);
       lastX.current = e.clientX;
       lastY.current = e.clientY;
     };
@@ -120,7 +120,7 @@ export default function PolychoraPage() {
       if (e.touches.length === 1 && dragging.current) {
         const dY = (e.touches[0].clientX - lastX.current) * 0.012;
         const dX = (e.touches[0].clientY - lastY.current) * 0.012;
-        matRef.current = mat4Mul(mat4Mul(planeMat(0,3,dY), planeMat(1,3,dX)), matRef.current);
+        matRef.current = mat4Mul(mat4Mul(planeMat(0,3,-dY), planeMat(1,3,-dX)), matRef.current);
         lastX.current = e.touches[0].clientX;
         lastY.current = e.touches[0].clientY;
       }
