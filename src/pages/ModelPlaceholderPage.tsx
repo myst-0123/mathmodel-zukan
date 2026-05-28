@@ -12,7 +12,7 @@ export default function ModelPlaceholderPage() {
   }
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
+    <div className="px-4 md:px-6 lg:px-8 py-6 max-w-screen-2xl mx-auto">
       <div className="mb-8">
         <span className="text-xs font-medium text-indigo-400 uppercase tracking-widest">
           {model.category}
