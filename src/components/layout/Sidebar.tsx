@@ -20,7 +20,7 @@ function buildOpenState(pathname: string): Record<string, boolean> {
   }, {});
 }
 
-export default function Sidebar() {
+export default function Sidebar({ open }: { open: boolean }) {
   const location = useLocation();
 
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(
@@ -44,7 +44,12 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 min-h-screen bg-gray-900 text-gray-100 flex flex-col">
+    <aside className={`
+      fixed inset-y-0 left-0 z-40 w-64 min-h-screen bg-gray-900 text-gray-100 flex flex-col
+      transform transition-transform duration-200
+      md:static md:translate-x-0 md:z-auto
+      ${open ? 'translate-x-0' : '-translate-x-full'}
+    `}>
       <div className="px-5 py-5 border-b border-gray-700">
         <NavLink to="/" className="block">
           <h1 className="text-base font-bold leading-tight text-white">数理モデル図鑑</h1>

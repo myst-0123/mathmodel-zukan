@@ -174,9 +174,10 @@ export function drawEdges4D(
   ctx: CanvasRenderingContext2D,
   edges: [number,number][],
   projected: Projected4D[],
-  useWColor: boolean
+  useWColor: boolean,
+  lineWidth = 1.2
 ): void {
-  ctx.lineWidth = 1.2;
+  ctx.lineWidth = lineWidth;
   for (const [a,b] of edges) {
     const pa = projected[a], pb = projected[b];
     const midZ = (pa.z+pb.z)/2;

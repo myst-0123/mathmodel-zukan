@@ -30,10 +30,10 @@ interface ShowFlags {
   verts: boolean;
 }
 
-const CANVAS_SIZE = 480;
-
 export default function PolyhedraPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const sizeRef = useRef(480);
 
   const [currentSolid, setCurrentSolid] = useState<SolidId>('dodeca');
   const [usePersp, setUsePersp] = useState(false);
@@ -41,6 +41,7 @@ export default function PolyhedraPage() {
   const [show, setShow] = useState<ShowFlags>({
     edges: true, faces: true, extra: false, rects: false, verts: false,
   });
+  const [edgeWidth, setEdgeWidth] = useState(1.8);
 
   const solidData = useMemo<SolidData>(
     () => (currentSolid === 'dodeca' ? buildDodeca() : buildIcosa()),
@@ -55,15 +56,45 @@ export default function PolyhedraPage() {
   const lastY     = useRef(0);
   const pinchDist = useRef<number | null>(null);
 
+  // ── Dynamic canvas sizing (ResizeObserver + DPR) ──────────────────────────
+  useEffect(() => {
+    const container = canvasContainerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+
+    const ro = new ResizeObserver((entries) => {
+      const w = Math.floor(entries[0].contentRect.width);
+      const size = Math.max(280, Math.min(900, w));
+      const dpr = window.devicePixelRatio || 1;
+      const prevSize = sizeRef.current;
+
+      zoomRef.current = Math.max(
+        100 * size / 480,
+        Math.min(600 * size / 480, zoomRef.current * size / prevSize)
+      );
+      sizeRef.current = size;
+
+      const ctx = canvas.getContext('2d')!;
+      canvas.width  = size * dpr;
+      canvas.height = size * dpr;
+      canvas.style.width  = size + 'px';
+      canvas.style.height = size + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    });
+
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, []);
+
   // ── Animation loop ────────────────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d')!;
-    const W = CANVAS_SIZE, H = CANVAS_SIZE;
     let rafId: number;
 
     function loop() {
+      const W = sizeRef.current, H = sizeRef.current;
       if (autoRotate) matRef.current = mat3Mul(mat3RotY(0.008), matRef.current);
 
       ctx.clearRect(0, 0, W, H);
@@ -79,10 +110,10 @@ export default function PolyhedraPage() {
       if (show.rects) for (const rg of rectGroups) drawRect(ctx, rg, verts, opts);
       if (show.extra && extra)
         for (const [a, b] of extra.edges)
-          drawLine(ctx, verts[a], verts[b], opts, extra.color, 2, [5, 3], true);
+          drawLine(ctx, verts[a], verts[b], opts, extra.color, edgeWidth + 0.2, [5, 3], true);
       if (show.edges)
         for (const [a, b] of edges)
-          drawLine(ctx, verts[a], verts[b], opts, '#5599ff', 1.8, [], true);
+          drawLine(ctx, verts[a], verts[b], opts, '#5599ff', edgeWidth, [], true);
       if (show.verts) {
         for (let i = 0; i < verts.length; i++) {
           const [px, py] = project(verts[i], opts);
@@ -100,7 +131,7 @@ export default function PolyhedraPage() {
 
     rafId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafId);
-  }, [solidData, show, autoRotate, usePersp]);
+  }, [solidData, show, autoRotate, usePersp, edgeWidth]);
 
   // ── Window-level mouse events ─────────────────────────────────────────────
   useEffect(() => {
@@ -155,7 +186,8 @@ export default function PolyhedraPage() {
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
-        zoomRef.current = Math.max(100, Math.min(600, zoomRef.current * d / pinchDist.current));
+        const s = sizeRef.current;
+        zoomRef.current = Math.max(100 * s / 480, Math.min(600 * s / 480, zoomRef.current * d / pinchDist.current));
         pinchDist.current = d;
       }
     };
@@ -178,7 +210,8 @@ export default function PolyhedraPage() {
     if (!canvas) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      zoomRef.current = Math.max(100, Math.min(600, zoomRef.current - e.deltaY * 0.3));
+      const s = sizeRef.current;
+      zoomRef.current = Math.max(100 * s / 480, Math.min(600 * s / 480, zoomRef.current - e.deltaY * 0.3));
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', onWheel);
@@ -207,7 +240,6 @@ export default function PolyhedraPage() {
     ...solidData.rectGroups.map(rg => ({ color: rg.color, label: '長方形' })),
   ];
 
-  // Control buttons (extra button shown only when solidData.extra exists)
   const ctrlButtons: { key: keyof ShowFlags; label: string }[] = [
     { key: 'edges', label: '辺' },
     { key: 'faces', label: '面（半透明）' },
@@ -217,7 +249,7 @@ export default function PolyhedraPage() {
   ];
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
+    <div className="px-4 md:px-6 lg:px-8 py-6 max-w-screen-2xl mx-auto">
       {/* Header */}
       <div className="mb-6">
         <span className="text-xs font-medium text-indigo-400 uppercase tracking-widest">幾何学</span>
@@ -225,96 +257,118 @@ export default function PolyhedraPage() {
         <p className="text-gray-500 text-sm">ドラッグで回転 ／ ピンチまたはホイールでズーム</p>
       </div>
 
-      {/* Perspective toggle */}
-      <div className="flex items-center gap-3 mb-4">
-        <span className={`text-sm transition-colors ${!usePersp ? 'text-indigo-300' : 'text-gray-500'}`}>
-          平行投影
-        </span>
-        <button
-          role="switch"
-          aria-checked={usePersp}
-          onClick={() => setUsePersp(v => !v)}
-          className={`relative w-11 h-6 rounded-full border transition-colors focus:outline-none ${
-            usePersp ? 'bg-indigo-600 border-indigo-500' : 'bg-gray-800 border-gray-700'
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform ${
-              usePersp ? 'translate-x-5 bg-white' : 'bg-gray-400'
-            }`}
-          />
-        </button>
-        <span className={`text-sm transition-colors ${usePersp ? 'text-indigo-300' : 'text-gray-500'}`}>
-          遠近投影（パース）
-        </span>
-      </div>
+      {/* 2-column on lg+ */}
+      <div className="flex flex-col lg:flex-row lg:items-start lg:gap-8">
 
-      {/* Solid selector */}
-      <div className="flex mb-5 border border-gray-700 rounded-lg overflow-hidden w-fit">
-        {(['dodeca', 'icosa'] as const).map((id, i) => (
-          <button
-            key={id}
-            onClick={() => handleSolidChange(id)}
-            className={`px-5 py-2 text-sm transition-colors ${i > 0 ? 'border-l border-gray-700' : ''} ${
-              currentSolid === id
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            {id === 'dodeca' ? '正十二面体' : '正二十面体'}
-          </button>
-        ))}
-      </div>
-
-      {/* Canvas */}
-      <canvas
-        ref={canvasRef}
-        width={CANVAS_SIZE}
-        height={CANVAS_SIZE}
-        className="rounded-2xl cursor-grab active:cursor-grabbing block"
-        style={{ background: '#12121f', boxShadow: '0 0 40px #0d1a2d' }}
-        onMouseDown={onMouseDown}
-      />
-
-      {/* Controls */}
-      <div className="flex flex-wrap gap-2 mt-4">
-        {ctrlButtons.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => toggleShow(key)}
-            className={`px-4 py-1.5 text-sm rounded-lg border transition-colors ${
-              show[key]
-                ? 'bg-indigo-600 border-indigo-500 text-white'
-                : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-        <button
-          onClick={() => setAutoRotate(v => !v)}
-          className={`px-4 py-1.5 text-sm rounded-lg border transition-colors ${
-            autoRotate
-              ? 'bg-indigo-600 border-indigo-500 text-white'
-              : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'
-          }`}
-        >
-          自動回転
-        </button>
-      </div>
-
-      {/* Legend */}
-      <div className="flex flex-wrap gap-4 mt-3 text-xs text-gray-400">
-        {legendItems.map((item, i) => (
-          <div key={i} className="flex items-center gap-1.5">
-            <div className="w-5 h-0.5 rounded" style={{ backgroundColor: item.color }} />
-            {item.label}
+        {/* Left: projection toggle + canvas */}
+        <div className="lg:flex-1 lg:min-w-0">
+          {/* Perspective toggle */}
+          <div className="flex items-center gap-3 mb-4">
+            <span className={`text-sm transition-colors ${!usePersp ? 'text-indigo-300' : 'text-gray-500'}`}>
+              平行投影
+            </span>
+            <button
+              role="switch"
+              aria-checked={usePersp}
+              onClick={() => setUsePersp(v => !v)}
+              className={`relative w-11 h-6 rounded-full border transition-colors focus:outline-none ${
+                usePersp ? 'bg-indigo-600 border-indigo-500' : 'bg-gray-800 border-gray-700'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform ${
+                  usePersp ? 'translate-x-5 bg-white' : 'bg-gray-400'
+                }`}
+              />
+            </button>
+            <span className={`text-sm transition-colors ${usePersp ? 'text-indigo-300' : 'text-gray-500'}`}>
+              遠近投影（パース）
+            </span>
           </div>
-        ))}
-      </div>
 
-      {/* Info */}
-      <p className="mt-2 text-xs text-gray-600 leading-relaxed">{solidData.info}</p>
+          {/* Canvas container — ResizeObserver targets this div */}
+          <div ref={canvasContainerRef}>
+            <canvas
+              ref={canvasRef}
+              className="rounded-2xl cursor-grab active:cursor-grabbing block"
+              style={{ background: '#12121f', boxShadow: '0 0 40px #0d1a2d', width: '100%', aspectRatio: '1 / 1' }}
+              onMouseDown={onMouseDown}
+            />
+          </div>
+        </div>
+
+        {/* Right: selector + controls + legend + info */}
+        <div className="lg:w-80 xl:w-96 lg:shrink-0 mt-6 lg:mt-0">
+          {/* Solid selector */}
+          <div className="flex mb-5 border border-gray-700 rounded-lg overflow-hidden w-fit">
+            {(['dodeca', 'icosa'] as const).map((id, i) => (
+              <button
+                key={id}
+                onClick={() => handleSolidChange(id)}
+                className={`px-5 py-2 text-sm transition-colors ${i > 0 ? 'border-l border-gray-700' : ''} ${
+                  currentSolid === id
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-800'
+                }`}
+              >
+                {id === 'dodeca' ? '正十二面体' : '正二十面体'}
+              </button>
+            ))}
+          </div>
+
+          {/* Controls */}
+          <div className="flex flex-wrap gap-2">
+            {ctrlButtons.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => toggleShow(key)}
+                className={`px-4 py-1.5 text-sm rounded-lg border transition-colors ${
+                  show[key]
+                    ? 'bg-indigo-600 border-indigo-500 text-white'
+                    : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+            <button
+              onClick={() => setAutoRotate(v => !v)}
+              className={`px-4 py-1.5 text-sm rounded-lg border transition-colors ${
+                autoRotate
+                  ? 'bg-indigo-600 border-indigo-500 text-white'
+                  : 'bg-gray-900 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              自動回転
+            </button>
+          </div>
+
+          {/* Edge width slider */}
+          <div className="flex items-center gap-3 mt-4">
+            <span className="text-xs text-gray-400 w-16 shrink-0">辺の太さ</span>
+            <input
+              type="range" min={0.5} max={5} step={0.1}
+              value={edgeWidth}
+              onChange={e => setEdgeWidth(+e.target.value)}
+              className="flex-1 accent-indigo-500"
+            />
+            <span className="text-xs text-gray-500 tabular-nums w-6 text-right">{edgeWidth.toFixed(1)}</span>
+          </div>
+
+          {/* Legend */}
+          <div className="flex flex-wrap gap-4 mt-4 text-xs text-gray-400">
+            {legendItems.map((item, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <div className="w-5 h-0.5 rounded" style={{ backgroundColor: item.color }} />
+                {item.label}
+              </div>
+            ))}
+          </div>
+
+          {/* Info */}
+          <p className="mt-3 text-xs text-gray-600 leading-relaxed">{solidData.info}</p>
+        </div>
+      </div>
     </div>
   );
 }
