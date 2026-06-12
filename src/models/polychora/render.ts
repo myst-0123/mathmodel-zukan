@@ -70,14 +70,10 @@ function project4to3(
 
 function project3to2(
   [x,y,z]: [number,number,number],
-  zoom: number, W: number, H: number,
-  projMode: ProjectionMode
+  zoom: number, W: number, H: number
 ): [number, number, number] {
-  if (projMode === 'ortho') {
-    return [W/2 + x*zoom/3.5, H/2 - y*zoom/3.5, z];
-  }
-  const fov = 6, zz = z + fov;
-  return [W/2 + x*zoom/zz, H/2 - y*zoom/zz, z];
+  // 3D→2D is always parallel (orthographic) projection.
+  return [W/2 + x*zoom/3.5, H/2 - y*zoom/3.5, z];
 }
 
 export function depthAlpha(z: number): number {
@@ -110,7 +106,7 @@ export function projectAll(
   return verts.map(v => {
     const rotated = applyRot4(opts.rotMat, v);
     const xyz = project4to3(rotated, opts.projMode, opts.perspDist);
-    const [cx,cy,z] = project3to2(xyz, opts.zoom, opts.W, opts.H, opts.projMode);
+    const [cx,cy,z] = project3to2(xyz, opts.zoom, opts.W, opts.H);
     return { cx, cy, z, w: rotated[3] };
   });
 }
@@ -157,8 +153,8 @@ export function drawSlice(
   ctx.lineWidth = 2.0;
   ctx.strokeStyle = '#ffd54a';
   for (const [p0, p1] of segments) {
-    const [cx0, cy0, z0] = project3to2(p0, opts.zoom, opts.W, opts.H, opts.projMode);
-    const [cx1, cy1, z1] = project3to2(p1, opts.zoom, opts.W, opts.H, opts.projMode);
+    const [cx0, cy0, z0] = project3to2(p0, opts.zoom, opts.W, opts.H);
+    const [cx1, cy1, z1] = project3to2(p1, opts.zoom, opts.W, opts.H);
     const midZ = (z0 + z1) / 2;
     ctx.globalAlpha = depthAlpha(midZ);
     ctx.beginPath();
@@ -197,19 +193,17 @@ export function drawFaces4D(
   ctx: CanvasRenderingContext2D,
   faces: number[][],
   projected: Projected4D[],
-  useWColor: boolean,
-  projMode: ProjectionMode = 'ortho'
+  useWColor: boolean
 ): void {
   // Depth-sort faces back→front (painter's algorithm).
-  // Ortho: larger z = front → ascending sort.
-  // Persp/Stereo: divisor zz = z+fov, so smaller z = closer → descending sort.
+  // 3D→2D is parallel projection, so larger z = front → ascending sort.
   const sorted = faces
     .map((f,i) => {
       const z = f.reduce((s,v)=>s+projected[v].z,0)/f.length;
       const w = f.reduce((s,v)=>s+projected[v].w,0)/f.length;
       return {i, z, w};
     })
-    .sort((a,b) => projMode === 'ortho' ? a.z - b.z : b.z - a.z);
+    .sort((a,b) => a.z - b.z);
 
   for (const {i, z, w} of sorted) {
     const f = faces[i];
